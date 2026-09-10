@@ -99,7 +99,6 @@ function getMonth(){
 
   return m;
 }
-function getMonth(){ state.months ||= {"Month 1":{}}; state.months[monthKey()] ||= {}; return state.months[monthKey()]; }
 function mv(id){ return getMonth()[id] ?? ""; }
 function setmv(id,v){ getMonth()[id]=v; save(); }
 function exportMonth(){

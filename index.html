@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Workout Tracker</title>
+<style>
+:root{--bg:#fff8fb;--card:#fff;--ink:#30242b;--muted:#75656d;--accent:#d9789b;--line:#eadde2}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+
+.dashboard{background:linear-gradient(135deg,#fff,#fff0f5);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:16px}
+.buddy{font-size:64px;line-height:1;text-align:center;animation:bob 2s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.buddymsg{text-align:center;font-weight:700;margin:8px 0 14px}
+.dashgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:white;border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat b{display:block;font-size:20px}.stat span{font-size:12px;color:var(--muted)}
+.chart{height:150px;width:100%;margin-top:8px}
+header{position:sticky;top:0;background:rgba(255,248,251,.94);backdrop-filter:blur(12px);padding:16px;border-bottom:1px solid var(--line);z-index:2}
+h1{font-size:24px;margin:0 0 10px}.tabs{display:flex;gap:8px;overflow:auto;padding-bottom:2px}.tabs button{white-space:nowrap;border:1px solid var(--line);background:white;border-radius:999px;padding:8px 12px;font-size:14px}
+.tabs button.active{background:var(--accent);color:white;border-color:var(--accent)}
+main{max-width:760px;margin:auto;padding:16px 14px 80px}.day{display:none}.day.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px #3b152008}
+.exercise{border-bottom:1px solid var(--line);padding:12px 0}.exercise:last-child{border:0}
+.row{display:flex;align-items:flex-start;gap:10px}.done{width:22px;height:22px;accent-color:var(--accent);margin-top:1px}.name{font-weight:700;font-size:16px}.target{font-size:13px;color:var(--muted);margin-top:2px}
+.inputs{display:grid;grid-template-columns:1fr repeat(4,60px);gap:7px;margin-top:10px}.inputs.one{grid-template-columns:1fr repeat(2,80px)}
+select{font-size:15px;background:white} input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 7px;font-size:15px;background:#fff}
+label.small{font-size:12px;color:var(--muted)} .notes{width:100%;min-height:90px}
+.section-title{font-size:20px;margin:8px 0 12px}.optional{color:var(--muted);font-size:14px;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.progress{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:600px){.progress{grid-template-columns:repeat(3,1fr)}}
+button.action{border:0;background:var(--accent);color:white;padding:11px 14px;border-radius:10px;font-weight:700;margin-right:8px}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:10px;text-align:center;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><h1>🐻🍎 My Workout Tracker</h1><div class="tabs" id="tabs"></div></header>
+<main id="app"></main>
+<footer>Saved automatically on this device</footer>
+<script>
+const days = {
+"Monday — Glutes + Pull":[
+["Hip Thrust","4×6–8"],["Romanian Deadlift","3×8–10"],["Bulgarian Split Squat","3×8–10/leg"],["Lat Pulldown","3×8–10"],["Chest-Supported Row","3×8–12"],["Cable Lateral Raise","3×12–15"],["Glute Kickback","3×12–15"],["Hip Abduction","3×15–25"]],
+"Tuesday — Upper + Light Legs":[
+["Bench Press","3×8–10"],["Assisted Pull-Up","3×8–10","Assistance"],["Dumbbell Shoulder Press","3×8–12"],["Seated Cable Row","3×8–12"],["Walking Lunges","2×10/leg",null,2],["Tricep Pushdown","2×10–12",null,2],["Lateral Raise","3×12–15"],["Pallof Press","2×10–12/side",null,2]],
+"Wednesday — Glute Volume":[
+["Hip Thrust","3×8–12"],["Glute-Biased Back Extension","3×10–15"],["Walking Lunges","3×10–12/leg"],["Cable Kickback","3×12–15/leg"],["Hip Abduction","4×15–25"],["Rear Delt Fly","3×12–15"],["Pec Fly","2×10–12",null,2]],
+"Thursday — Upper + Core":[
+["Assisted Pull-Up","3×8–10","Assistance"],["Bench Press","3×8–10"],["Seated Cable Row","3×8–12"],["Dumbbell Bicep Curl","2×10–12",null,2],["Tricep Pushdown","2×10–12",null,2],["Lateral Raise","3×12–15"],["Rear Delt Fly","2×12–15",null,2],["Pallof Press","2×10–12/side",null,2],["Side Plank","2×30 sec/side","Time",2]],
+"Friday — Glute Specialization":[
+["Hip Thrust","4×8–10"],["Romanian Deadlift","3×8–10"],["Bulgarian Split Squat","3×10–12/leg"],["Glute-Biased Back Extension","3×12–15"],["Cable Kickback","3×12–15"],["Hip Abduction","3×20–30"],["Frog Pumps","2×20–25",null,2]]
+};
+const extras = {
+"Mobility":[["90/90 Hip Lift","2×5 breaths"],["Cat-Cow","10"],["World's Greatest Stretch","3/side"],["Glute Med Wall Press","20 sec/side"],["Banded Lateral Walk","10 steps/side"]],
+"Cardio":[["Incline walk","15–20 min, 2–3×/week"]]
+};
+const key="workoutTrackerV1";
+let state=JSON.parse(localStorage.getItem(key)||"{}");
+function save(){localStorage.setItem(key,JSON.stringify(state))}
+function val(id,v){state[id]=v;save()}
+function ex(name,target,metric="Weight",sets=3,id){
+ let reps=Array.from({length:sets},(_,i)=>`<div><label class="small">Set ${i+1}</label><input inputmode="decimal" placeholder="Reps" value="${state[id+'r'+i]||''}" onchange="val('${id}r${i}',this.value)"></div>`).join("");
+ return `<div class="exercise"><div class="row"><input class="done" type="checkbox" ${state[id+'done']?'checked':''} onchange="val('${id}done',this.checked)"><div><div class="name">${name}</div><div class="target">${target}</div></div></div><div class="inputs"><div><label class="small">${metric}</label><input inputmode="decimal" placeholder="${metric}" value="${state[id+'w']||''}" onchange="val('${id}w',this.value)"></div>${reps}</div></div>`;
+}
+const app=document.getElementById("app"), tabs=document.getElementById("tabs");
+let names=[...Object.keys(days),...Object.keys(extras),"Weekly Progress"];
+names.forEach((n,i)=>{tabs.innerHTML+=`<button class="${i==0?'active':''}" onclick="show(${i})">${n.split(" — ")[0]}</button>`;});
+function render(){
+ app.innerHTML="";
+ Object.entries(days).forEach(([day,list],di)=>{
+  let html=`<section class="day ${di==0?'active':''}"><h2 class="section-title">${day}</h2><div class="card">${list.map((x,i)=>ex(x[0],x[1],x[2]||"Weight",x[3]||3,`d${di}e${i}`)).join("")}</div>${(di==0||di==2||di==4)?'<p class="optional">Optional: ⛰️ Incline walk 10–15 min</p>':''}<div class="card"><label class="name">Workout notes</label><textarea class="notes" placeholder="How did it feel? Anything to change next time?" onchange="val('note'+${di},this.value)">${state['note'+di]||''}</textarea></div></section>`;
+  app.innerHTML+=html;
+ });
+ Object.entries(extras).forEach(([title,list],j)=>{
+  let idx=Object.keys(days).length+j;
+  app.innerHTML+=`<section class="day"><h2 class="section-title">${title==="Mobility"?"🧘 Quick Pre-Workout Mobility":"🚶 Cardio"}</h2><div class="card">${list.map((x,i)=>`<div class="exercise"><div class="row"><input class="done" type="checkbox" ${state[`x${j}${i}`]?'checked':''} onchange="val('x${j}${i}',this.checked)"><div><div class="name">${x[0]}</div><div class="target">${x[1]}</div></div></div></div>`).join("")}</div></section>`;
+ });
+ let idx=names.length-1;
+ let weeks=[1,2,3,4].map(w=>`<div class="card"><h3>Week ${w}</h3><div class="progress">
+ ${["Glute measurement","Body weight","Hip thrust","RDL","Bulgarian"].map((x,i)=>`<div><label class="small">${x}</label><input placeholder="${i<2?'':'lb × reps'}" value="${state[`p${w}${i}`]||''}" onchange="val('p${w}${i}',this.value)"></div>`).join("")}
+ </div></div>`).join("");
+ app.innerHTML+=`<section class="day"><h2 class="section-title">📈 Weekly Progress</h2>${weeks}<div class="card"><h3>📸 Progress Photos</h3><p class="target">Week 1 + Week 4 — same clothes, lighting, pose, and time of day.</p><div class="grid2"><label>Week 1 photo<input type="file" accept="image/*"></label><label>Week 4 photo<input type="file" accept="image/*"></label></div></div><button class="action" onclick="if(confirm('Clear all saved workout data?')){localStorage.removeItem(key);location.reload()}">Reset all data</button></section>`;
+}
+function show(i){document.querySelectorAll(".day").forEach((d,x)=>d.classList.toggle("active",x===i));document.querySelectorAll(".tabs button").forEach((b,x)=>b.classList.toggle("active",x===i));window.scrollTo(0,0)}
+render();
+
+// ===== Multi-month upgrades =====
+const oldRender = render;
+function getMonth(){
+  state.months ||= {"Month 1":{}};
+  state.months[monthKey()] ||= {};
+  const m = state.months[monthKey()];
+
+  if(!m.startDate){
+    const now = new Date();
+    m.startDate = now.toISOString().slice(0,10);
+    save();
+  }
+
+  return m;
+}
+function getMonth(){ state.months ||= {"Month 1":{}}; state.months[monthKey()] ||= {}; return state.months[monthKey()]; }
+function mv(id){ return getMonth()[id] ?? ""; }
+function setmv(id,v){ getMonth()[id]=v; save(); }
+function exportMonth(){
+ const blob=new Blob([JSON.stringify({month:monthKey(),data:getMonth()},null,2)],{type:"application/json"});
+ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=monthKey().replaceAll(" ","_")+"_workout.json"; a.click();
+}
+function newMonth(){
+  const n = Object.keys(state.months || {}).length + 1;
+  const name = prompt("Name your next 4-week block:", "Month " + n);
+
+  if(!name) return;
+
+  state.months ||= {};
+
+  const now = new Date();
+
+  state.months[name] = {
+    startDate: now.toISOString().slice(0,10)
+  };
+
+  state.activeMonth = name;
+
+  save();
+  location.reload();
+}
+function monthSwitcher(){
+ const months=Object.keys(state.months||{"Month 1":{}});
+ return `<div class="card" style="margin-bottom:16px"><div class="name">📅 Current 4-week block</div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+ <select onchange="state.activeMonth=this.value;save();location.reload()" style="padding:9px;border-radius:9px;border:1px solid var(--line)">${months.map(m=>`<option ${m===monthKey()?'selected':''}>${m}</option>`).join("")}</select>
+ <button class="action" onclick="newMonth()">Start next month</button>
+ <button class="action" onclick="exportMonth()">Save/export</button></div>
+ <div class="target" style="margin-top:8px">Each block keeps its own workouts and 4-week progress. Your charts combine every saved block.</div></div>`;
+}
+function patchInputs(){
+ document.querySelectorAll("input,textarea").forEach(el=>{
+   const old=el.getAttribute("onchange"); if(!old)return;
+   const m=old.match(/val\('([^']+)'/); if(!m)return;
+   const id=m[1]; const type=el.type==="checkbox";
+   el.value= type ? el.value : mv(id);
+   if(type) el.checked=!!getMonth()[id];
+   el.onchange=()=>setmv(id,type?el.checked:el.value);
+ });
+}
+const originalShow=show;
+function show(i){ originalShow(i); patchInputs(); }
+render();
+document.querySelector("main").insertAdjacentHTML("afterbegin",monthSwitcher());
+patchInputs();
+
+// Add a progress history section and charts inside Weekly Progress.
+const weekly=document.querySelectorAll(".day")[document.querySelectorAll(".day").length-1];
+const history=document.createElement("div"); history.className="card";
+history.innerHTML=`<h3>📊 Long-term progress</h3>
+<p class="target">Your measurements from every completed 4-week block stay saved here. Add each month's final numbers below.</p>
+<div id="longProgress"></div>`;
+weekly.prepend(history);
+function drawLong(){
+ const months=Object.keys(state.months||{"Month 1":{}});
+ document.getElementById("longProgress").innerHTML=months.map(m=>{
+   const d=(state.months[m].summary||{});
+   return `<div class="card" style="margin:8px 0"><b>${m}</b><div class="progress">
+   ${["Glute measurement","Body weight","Hip thrust","RDL","Bulgarian"].map((x,i)=>`<div><label class="small">${x}</label><input inputmode="decimal" value="${d['s'+i]||''}" onchange="state.months['${m}'].summary ||= {}; state.months['${m}'].summary['s${i}']=this.value; save()" placeholder="${i<2?'number':'number'}"></div>`).join("")}
+   </div></div>`}).join("")+`<div class="target">Charts update when you save/reopen the tracker. Your history is stored on this device.</div>`;
+}
+drawLong();
+
+
+// ===== Cute dashboard + automatic carry-over =====
+function currentDayIndex(){
+ const d=new Date().getDay(); // Sunday 0
+ return d>=1&&d<=5 ? d-1 : 0;
+}
+function exerciseIdsForDay(di){
+ return (days[Object.keys(days)[di]]||[]).map((_,i)=>`d${di}e${i}`);
+}
+function dayComplete(di){
+ const ids=exerciseIdsForDay(di);
+ return ids.length && ids.every(id=>getMonth()[id+"done"]===true);
+}
+function carryForward(id){
+ // current month first, then previous months newest to oldest
+ const cur=getMonth();
+ if(cur[id]!==undefined && cur[id]!=="" ) return cur[id];
+ const ms=Object.keys(state.months||{});
+ for(let m=ms.length-1;m>=0;m--){
+   const d=state.months[ms[m]]||{};
+   if(d[id]!==undefined && d[id]!=="" ) return d[id];
+ }
+ return "";
+}
+function patchCarryOver(){
+ document.querySelectorAll("input,textarea").forEach(el=>{
+   const old=el.getAttribute("onchange"); if(!old)return;
+   const m=old.match(/val\('([^']+)'/); if(!m)return;
+   const id=m[1], type=el.type==="checkbox";
+   if(type) el.checked=!!getMonth()[id];
+   else {
+     const v=carryForward(id);
+     el.value=v;
+     if(v!=="" && getMonth()[id]===undefined) {
+       // Don't save carried-over reps automatically, only display weights/reps as starting point.
+       el.dataset.carried="true";
+     }
+   }
+   el.onchange=()=>setmv(id,type?el.checked:el.value);
+ });
+}
+patchInputs=patchCarryOver;
+
+function svgChart(values, labels, suffix=""){
+ if(!values.some(v=>Number.isFinite(v))) return `<div class="target">Add monthly numbers to see your trend ✨</div>`;
+ const clean=values.map(v=>Number.isFinite(v)?v:null), valid=clean.filter(v=>v!==null);
+ const min=Math.min(...valid), max=Math.max(...valid), range=max-min||1;
+ const w=300,h=130,p=18;
+ const pts=clean.map((v,i)=>{
+   if(v===null)return null;
+   const x=p+i*((w-p*2)/Math.max(1,clean.length-1));
+   const y=h-p-((v-min)/range)*(h-p*2);
+   return [x,y];
+ }).filter(Boolean);
+ const poly=pts.map(x=>x.join(",")).join(" ");
+ return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+ <line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#eadde2"/>
+ <polyline fill="none" stroke="#d9789b" stroke-width="3" points="${poly}"/>
+ ${pts.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="4" fill="#d9789b"/>`).join("")}
+ </svg><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">${labels.map(x=>`<span>${x}</span>`).join("")}</div>`;
+}
+  function currentBlockWeek(){
+  const month = getMonth();
+  const start = month.startDate
+    ? new Date(month.startDate + "T00:00:00")
+    : null;
+
+  if(!start || Number.isNaN(start.getTime())){
+    return "Week 1 of 4";
+  }
+
+  const now = new Date();
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  const diffDays = Math.floor((today - start) / 86400000);
+  const week = Math.min(
+    4,
+    Math.max(1, Math.floor(diffDays / 7) + 1)
+  );
+
+  return `Week ${week} of 4`;
+}
+function dashboard(){
+ const di=currentDayIndex(), name=Object.keys(days)[di].split(" — ")[0];
+ const complete=dayComplete(di);
+ const months=Object.keys(state.months||{"Month 1":{}});
+ const summaries=months.map(m=>state.months[m]?.summary||{});
+ const body=summaries.map(x=>parseFloat(x.s1)).filter(()=>true);
+ const glutes=summaries.map(x=>parseFloat(x.s0)).filter(()=>true);
+ const thrust=summaries.map(x=>parseFloat(x.s2)).filter(()=>true);
+ const msg=complete ? `YOU DID IT!! 🎉 I’m proud of you!` : `Hi!! 🐻🍎 Ready to move today? You’ve got this!`;
+ return `<section class="day active" id="dashboardDay">
+ <div class="dashboard">
+ <div class="buddy">${complete?"🐻🍎✨":"🐻🍎🌱"}</div>
+ <div class="buddymsg">${msg}</div>
+ <div class="dashgrid">
+ <div class="stat"><b>${complete?"Done! 🎉":"Let's go!"}</b><span>${name}'s workout</span></div>
+ <div class="stat"><b>${currentBlockWeek()}</b><span>${monthKey()} · current block</span></div>
+ </div>
+ </div>
+ <div class="card"><h3>📈 Body weight</h3>${svgChart(body,months)}</div>
+ <div class="card"><h3>🍑 Glute measurement</h3>${svgChart(glutes,months)}</div>
+ <div class="card"><h3>🏋️ Hip thrust</h3>${svgChart(thrust,months)}</div>
+ <div class="card"><h3>✨ Your little reminder</h3><p class="target">${complete?"Rest, eat, and let those muscles recover. 🫶":"You don't need a perfect workout. Just showing up counts. 💗"}</p></div>
+ </section>`;
+}
+// rebuild tabs and insert Dashboard first
+tabs.innerHTML=`<button class="active" onclick="show(0)">🏠 Dashboard</button>`+names.map((n,i)=>`<button onclick="show(${i+1})">${n.split(" — ")[0]}</button>`).join("");
+app.insertAdjacentHTML("afterbegin",dashboard());
+const oldShow2=show;
+function show(i){
+ document.querySelectorAll(".day").forEach((d,x)=>d.classList.toggle("active",x===i));
+ document.querySelectorAll(".tabs button").forEach((b,x)=>b.classList.toggle("active",x===i));
+ if(i>0) patchCarryOver();
+ if(i===0){ const old=document.getElementById("dashboardDay"); if(old) old.outerHTML=dashboard(); }
+ window.scrollTo(0,0);
+}
+patchCarryOver();
+
+</script>
+</body></html>
